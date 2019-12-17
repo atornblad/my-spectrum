@@ -1,0 +1,82 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript unit tests</title>
+    <link rel="stylesheet" href="utOutput.css"/>
+    <script src="ut.js"></script>
+    <script src="utOutput.js"></script>
+    <script src="mock.js"></script>
+    <script src="ioc.js"></script>
+    <script src="z80.js"></script>
+    <script src="fakeSpeccy.js"></script>
+
+    <script src="ut_tests.js"></script>
+    <script src="mock_tests.js"></script>
+    <script src="ioc_tests.js"></script>
+    <script src="z80_tests.js"></script>
+    <script>
+        (function () {
+            // Create new Unit Testing engine
+            var engine = new ut.Engine({ output: utOutput });
+            
+            // Add the unit tests for the unit test framework
+            //engine.add(ut.tests);
+            // Add the unit tests for the mocking framework
+            //engine.add(mock.tests);
+            // Add the unit tests for the dependency injection framework
+            //engine.add(ioc.tests);
+            // Add the unit tests for the Z80 processor
+           //engine.add(z80.tests);
+            // Run all the tests
+            //engine.run();
+        })();
+    </script>
+</head>
+    <body>
+        <script>
+            var border = document.createElement("DIV");
+            border.style.width = "512px";
+            border.style.height = "384px";
+            border.style.padding = "64px";
+            border.style.backgroundColor = "#000000";
+            border.style.border = "solid 1px #999";
+            border.style.overflow = "display";
+            
+            var canvas = document.createElement("CANVAS");
+            canvas.width = 256;
+            canvas.height = 192;
+            canvas.style.width = "512px";
+            canvas.style.height = "384px";
+            canvas.style.position = "absolute";
+            canvas.style.backgroundColor = "#000000";
+            border.appendChild(canvas);
+
+            document.body.appendChild(border);
+
+            var speccy = new speccy(canvas, border);
+
+            var _11e2 = document.createElement("A");
+            _11e2.href = "#";
+            _11e2.appendChild(document.createTextNode("Go to $11e2"));
+            document.body.appendChild(_11e2);
+            _11e2.addEventListener("click", function () {
+                speccy.stepTo(0x11e2);
+            });
+
+            var _run = document.createElement("A");
+            _run.href = "#";
+            _run.appendChild(document.createTextNode("Run"));
+            document.body.appendChild(_run);
+            _run.addEventListener("click", function () {
+                speccy.run();
+            });
+
+            border.addEventListener("click", function () {
+                speccy.step();
+            });
+            
+//            speccy.run();
+
+        </script>
+    </body>
+</html>

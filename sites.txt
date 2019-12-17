@@ -1,0 +1,12 @@
+http://www.wearmouth.demon.co.uk/zx82.htm
+ftp://ftp.worldofspectrum.org/pub/sinclair/books/SpectrumOperatingSystemThe.pdf
+http://clrhome.org/table/
+http://www.wearmouth.demon.co.uk/
+http://www.worldofspectrum.org/infoseekid.cgi?id=1000486
+http://www.shadowmagic.org.uk/spectrum/roms.html
+http://mamedev.org/source/src/emu/cpu/z80/z80.c.html
+http://z80-heaven.wikidot.com/instructions-set:ld
+http://www.z80.info/z80info.htm
+http://www.zilog.com/docs/z80/um0080.pdf
+http://z80-heaven.wikidot.com/the-registers-and-memory
+http://www.z80.info/z80arki.htm

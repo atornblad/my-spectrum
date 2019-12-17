@@ -1,0 +1,71 @@
+﻿.utOutput {
+    background: #eee;
+    border: solid 3px #000;
+    border-radius: 8px;
+    margin: 10px;
+    padding: 0px;
+    font-family: "Segoe UI", Calibri, Helvetica, Arial, sans-serif;
+}
+
+.utOutput > h1 {
+    padding: 2px 10px;
+    background: #000;
+    color: #fff;
+    margin: 0px;
+    font-size: 24px;
+}
+
+.utOutput > h2 {
+    padding: 2px 10px;
+    margin: 0px;
+    font-size: 18px;
+    border-bottom: solid 2px #000;
+}
+
+.utOutput > p + h2 {
+    border-top: solid 3px #000;
+}
+
+.utOutput > p {
+    padding: 2px 10px 2px 26px;
+    margin: 0px;
+    font-size: 14px;
+    border-top: solid 1px #000;
+}
+
+.utOutput > .error {
+    background: #fcb;
+    color: #900;
+}
+
+.utOutput > p.error {
+    background: #fcb url('fail.png') no-repeat scroll 6px 50%;
+}
+
+.utOutput > .success {
+    background: #cfb;
+    color: #050;
+}
+
+.utOutput > p.success {
+    background: #cfb url('success.png') no-repeat scroll 6px 50%;
+}
+
+.utOutput > p.success.altGroup {
+    background-color: #e5ffdd;
+}
+
+.utOutput > p.error + p.success {
+    border-top: 2px solid #000;
+}
+
+.utOutput > :first-child {
+    border-radius: 4px 4px 0 0;
+}
+.utOutput > :last-child {
+    border-radius: 0 0 4px 4px;
+}
+
+.utOutput > .newGroup {
+    border-top: 3px solid #000;
+}

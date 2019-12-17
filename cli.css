@@ -1,0 +1,9 @@
+.cli {
+    font-size: 10px;
+    font-family: Consolas, monospace;
+    background-color: #131;
+    color: #9e9;
+    width: 80em;
+    line-height: 1;
+    height: 40em;
+}
