@@ -32,6 +32,25 @@
 
     var extendedTimings = [];
 
+    extendedTimings[0xcb] = [
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,12,8,8,8,8,8,8,8,12,8,
+        8,8,8,8,8,8,12,8,8,8,8,8,8,8,12,8,
+        8,8,8,8,8,8,12,8,8,8,8,8,8,8,12,8,
+        8,8,8,8,8,8,12,8,8,8,8,8,8,8,12,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8,
+        8,8,8,8,8,8,15,8,8,8,8,8,8,8,15,8
+    ];
+
     extendedTimings[0xed] = [
         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
@@ -103,6 +122,14 @@
         writeByte(p, (address + 1) & 0xffff, value >> 8);
     };
 
+    var readByte = function (p, address) {
+        return p.memory[address & 0xffff];
+    };
+
+    var readWord = function(p, address) {
+        return readByte(p, address) | (readByte(p, address + 1) << 8);
+    };
+
     var sign8 = function (value) {
         if (value >= 128) {
             value -= 256;
@@ -139,6 +166,10 @@
 
     var setsp = function (p, value) {
         p.state.sp = value & 0xffff;
+    };
+
+    var af = function (p) {
+        return p.state.a * 256 + p.state.f;
     };
 
     var push = function (p, value) {
@@ -208,6 +239,65 @@
         p.state.f = flags.szp[p.state.a];
     };
 
+    var or = function (p, input) {
+        p.state.a = (p.state.a | input) & 0xff;
+        p.state.f = flags.szp[p.state.a];
+    };
+
+    var add = function (p, val) {
+        var a = p.state.a;
+        var res = (a + val) & 0xff;
+
+        var innerVal = a + res;
+        var newF = (res ? ((res & 0x80) ? fS : 0) : fZ);
+        if ((res & 0x0f) < (a & 0x0f)) newF |= fH;
+        if (res < a) newF |= fC;
+        if ((innerVal ^ a) & (a ^ res) & 0x80) newF |= fV;
+        newF |= (val & (fX | fY));
+    };
+
+    var adc = function (p, val) {
+        var a = p.state.a + ((p.state.f & fC) ? 1 : 0);
+        var res = (a + val) & 0xff;
+
+        var innerVal = a + res;
+        var newF = (res ? ((res & 0x80) ? fS : 0) : fZ);
+        if ((res & 0x0f) < (a & 0x0f)) newF |= fH;
+        if (res < a) newF |= fC;
+        if ((innerVal ^ a) & (a ^ res) & 0x80) newF |= fV;
+        newF |= (val & (fX | fY));
+    };
+
+    var sub = function (p, val) {
+        var a = p.state.a;
+        var res = (a - val + 256) & 0xff;
+
+        var innerVal = a - res;
+        var newF = fN | (res ? ((res & 0x80) ? fS : 0) : fZ);
+        if ((res & 0x0f) > (a & 0x0f)) newF |= fH;
+        if (res > a) newF |= fC;
+        if ((innerVal ^ a) & (a ^ res) & 0x80) newF |= fV;
+        newF |= (val & (fX | fY));
+
+        p.state.a = res;
+        p.state.f = newF;
+    };
+
+    var sbc = function (p, val) {
+        var a = p.state.a;
+        var res = (a - val - ((p.state.f & fC) ? 1 : 0) + 256) & 0xff;
+
+        var innerVal = a - res;
+        var newF = fN | (res ? ((res & 0x80) ? fS : 0) : fZ);
+        if ((res & 0x0f) > (a & 0x0f)) newF |= fH;
+        if (res > a) newF |= fC;
+        if ((innerVal ^ a) & (a ^ res) & 0x80) newF |= fV;
+        newF |= (val & (fX | fY));
+
+        p.state.a = res;
+        p.state.f = newF;
+    };
+
     var cp = function (p, val) {
         var a = p.state.a;
         var res = (a - val + 256) & 0xff;
@@ -244,6 +334,15 @@
         var value = (p.memory[addr] + 255) & 0xff;
         writeByte(p, addr, value);
         p.state.f = p.state.f & fC | flags.szhv_dec[value];
+    };
+
+    var rlc = function(p, getter, setter) {
+        var old = getter(p);
+        // (Z)->A = ((Z)->A << 1) | ((Z)->A >> 7);
+        var newvalue = ((old << 1) & 0xfe) | ((old >> 7) & 0x01);
+        setter(p, newvalue);
+        // (Z)->F = ((Z)->F & (SF | ZF | PF)) | ((Z)->A & (YF | XF | CF));
+        p.state.f = (p.state.f & (fS | fZ | fP)) | (newa & (fX | fY | fC));
     };
 
     var rlca = function (p) {
@@ -413,9 +512,41 @@
         if (opcode) {
             p.currentImplSetOpcode = opcode.toString(16);
             p.implSet = otherSets[opcode];
+            if (!p.implSet) {
+                p.implSet = otherSets[opcode] = [];
+            }
         } else {
             p.currentImplSetOpcode = "";
             p.implSet = implementation;
+        }
+    };
+
+    var bit = function (p, bit, value) {
+        p.state.f = (p.state.f & fC) | fH | ((value & (1 << bit)) ? 0 : fZ);
+    };
+
+    var iyBitInstr = function (p, op, d) {
+        switch (op >> 3) {
+            case 0x00:
+                rlc(p, p => p.memory[p.state.iy + d], (p, v) => p.memory[p.state.iy + d] = b);
+                break;
+            case 0x01:
+                rrc(p, p => p.memory[p.state.iy + d], (p, v) => p.memory[p.state.iy + d] = b);
+                break;
+            case 0x09: // BIT 1, (IY+d)
+                bit(p, 1, p.memory[p.state.iy + d]);
+                break;
+            case 0x10: // RES 0, (IY+d)
+                p.memory[p.state.iy + d] &= 0xfe;
+                break;
+            case 0x11: // RES 1, (IY+d)
+                p.memory[p.state.iy + d] &= 0xfd;
+                break;
+            case 0x19: // SET 1, (IY+d)
+                p.memory[p.state.iy + d] |= 0x02;
+                break;
+            default:
+                throw new Error("Unimplemented op: FD CB " + op.toString(16).padStart(2, '0'));
         }
     };
 
@@ -469,7 +600,9 @@
     op(0x34, function () { inc8m(this, hl(this)); });
     op(0x35, function () { dec8m(this, hl(this)); });
     op(0x36, function () { writeByte(this, hl(this), readArg8(this)); });
+    op(0x38, function () { jrCond(this, (this.state.f & fC)); });
     op(0x39, function () { add16(this, sethl, hl(this), this.state.sp); });
+    op(0x3a, function () { this.state.ea = readArg16(this); this.state.a = this.memory[this.state.ea]; this.state.wz = this.state.ea + 1; });
     op(0x3c, function () { inc8(this, "a"); });
     op(0x3d, function () { dec8(this, "a"); });
     op(0x3e, function () { this.state.a = readArg8(this); });
@@ -483,7 +616,10 @@
     op(0x47, function () { this.state.b = this.state.a; });
     op(0x49, function () { });
     op(0x52, function () { });
+    op(0x56, function () { this.state.d = this.memory[hl(this)]; });
     op(0x5b, function () { });
+    op(0x5e, function () { this.state.e = this.memory[hl(this)]; });
+    op(0x5f, function () { this.state.e = this.state.a; });
     op(0x60, function () { this.state.h = this.state.b; });
     op(0x61, function () { this.state.h = this.state.c; });
     op(0x62, function () { this.state.h = this.state.d; });
@@ -500,7 +636,26 @@
     op(0x6d, function () { /*this.state.l = this.state.l;*/ });
     op(0x6e, function () { this.state.l = this.memory[hl(this)]; });
     op(0x6f, function () { this.state.l = this.state.a; });
+    op(0x77, function () { writeByte(this, hl(this), this.state.a); });
+    op(0x7a, function () { this.state.a = this.state.d; });
     op(0x7f, function () { });
+    op(0x87, function () { add(this, this.state.a); });
+    op(0x90, function () { sub(this, this.state.b); });
+    op(0x91, function () { sub(this, this.state.c); });
+    op(0x92, function () { sub(this, this.state.d); });
+    op(0x93, function () { sub(this, this.state.e); });
+    op(0x94, function () { sub(this, this.state.h); });
+    op(0x95, function () { sub(this, this.state.l); });
+    op(0x96, function () { sub(this, this.memory[hl(this)]); });
+    op(0x97, function () { sub(this, this.state.a); });
+    op(0x98, function () { sbc(this, this.state.b); });
+    op(0x99, function () { sbc(this, this.state.c); });
+    op(0x9a, function () { sbc(this, this.state.d); });
+    op(0x9b, function () { sbc(this, this.state.e); });
+    op(0x9c, function () { sbc(this, this.state.h); });
+    op(0x9d, function () { sbc(this, this.state.l); });
+    op(0x9e, function () { sbc(this, this.memory[hl(this)]); });
+    op(0x9f, function () { sbc(this, this.state.a); });
     op(0xa0, function () { and(this, this.state.b); });
     op(0xa1, function () { and(this, this.state.c); });
     op(0xa2, function () { and(this, this.state.d); });
@@ -517,6 +672,7 @@
     op(0xad, function () { xor(this, this.state.l); });
     op(0xae, function () { xor(this, this.memory[hl(this)]); });
     op(0xaf, function () { xor(this, this.state.a); });
+    op(0xb3, function () { or(this, this.state.e); });
     op(0xb8, function () { cp(this, this.state.b); });
     op(0xb9, function () { cp(this, this.state.c); });
     op(0xba, function () { cp(this, this.state.d); });
@@ -525,30 +681,56 @@
     op(0xbd, function () { cp(this, this.state.l); });
     op(0xbe, function () { cp(this, this.memory[hl(this)]); });
     op(0xbf, function () { cp(this, this.state.b); });
-    op(0xd3, function () { outNA(this); });
     op(0xc3, function () { jp(this); });
+    op(0xc6, function () { add(this, readArg8(this)); });
     op(0xc9, function () { if (this.state.sp == 0) { this.state.pc = 0; return 0x7fffffff; } this.state.pc = pop(this); });
-    op(0xcd, function () { var newPc = readArg16(this); push(this, this.state.pc); this.state.pc = newPc; });
+    op(0xcb, function () { setImplSet(this, 0xcb); });
+    op(0xcd, function () { var newPc = readArg16(this); console.log(`CALL \$${newPc.toString(16).padStart(4, 0)}`); push(this, this.state.pc); this.state.pc = newPc; });
+    op(0xce, function () { adc(this, readArg8(this)); });
+    op(0xcf, function () { push(this, this.state.pc); this.state.pc = 0x0008; });
+    op(0xd3, function () { outNA(this); });
+    op(0xd5, function () { push(this, de(this)); });
+    op(0xd7, function () { push(this, this.state.pc); this.state.pc = 0x0010; });
+    op(0xd8, function () { if (!this.state.f.c) { this.state.pc = pop(this); } });
+    op(0xe1, function () { sethl(this, pop(this)); });
+    op(0xe3, function () { var hlvalue = hl(this); var spcontent = readWord(this, this.state.sp); writeWord(this, this.state.sp, hlvalue); sethl(this, spcontent); });
+    op(0xe5, function () { push(this, hl(this)); });
+    op(0xe6, function () { and(this, readArg8(this)); });
+    op(0xe9, function () { throw "a"; this.state.pc = hl(this); });
     op(0xeb, function () { var temp = hl(this); sethl(this, de(this)); setde(this, temp); });
     op(0xed, function () { setImplSet(this, 0xed); });
     op(0xd9, function () { swap(this, "bcdehl"); });
+    op(0xf1, function () { this.state.af = pop(this); });
     op(0xf3, function () { this.state.iff1 = this.state.iff2 = 0; });
+    op(0xf5, function () { push(this, af(this)); });
     op(0xf9, function () { this.state.sp = hl(this); });
     op(0xfb, function () { this.state.iff1 = this.state.iff2 = 1; });
     op(0xfd, function () { setImplSet(this, 0xfd); });
+    op(0xfe, function () { cp(this, readArg8(this)); });
+
+    opop(0xcb, 0x7e, function () { bit(this, 6, this.memory[hl(this)]); });
 
     opop(0xed, 0x43, function () { this.state.ea = readArg16(this); writeWord(this, this.state.ea, bc(this)); this.state.wz = (this.state.ea + 1) & 0xffff; });
     opop(0xed, 0x53, function () { this.state.ea = readArg16(this); writeWord(this, this.state.ea, de(this)); this.state.wz = (this.state.ea + 1) & 0xffff; });
     opop(0xed, 0x47, function () { this.state.i = this.state.a; });
     opop(0xed, 0x52, function () { sbc16(this, de(this)); });
     opop(0xed, 0x56, function () { this.state.im = 1; });
+    opop(0xed, 0x7b, function () { this.state.ea = readArg16(this); setsp(this, readWord(this, this.state.ea)); this.state.wz = (this.state.ea + 1) & 0xffff; });
     opop(0xed, 0xb0, function () { ldir(this); });
     opop(0xed, 0xb8, function () { lddr(this); });
 
     opop(0xfd, 0x21, function () { this.state.iy = readArg16(this); });
     opop(0xfd, 0x34, function () { eay(this); writeByte(this, this.state.ea, inc8(this, this.memory[this.state.ea])); });
     opop(0xfd, 0x35, function () { eay(this); writeByte(this, this.state.ea, dec8(this, this.memory[this.state.ea])); });
-    opop(0xfd, 0xcb, function () { var arg = readArg8(this); var op = readArg8(this); iyBitInstr(op, arg); } );
+    opop(0xfd, 0x36, function () { eay(this); writeByte(this, this.state.ea, readArg8(this)); });
+    opop(0xfd, 0x70, function () { eay(this); writeByte(this, this.state.ea, this.state.b); });
+    opop(0xfd, 0x71, function () { eay(this); writeByte(this, this.state.ea, this.state.c); });
+    opop(0xfd, 0x72, function () { eay(this); writeByte(this, this.state.ea, this.state.d); });
+    opop(0xfd, 0x73, function () { eay(this); writeByte(this, this.state.ea, this.state.e); });
+    opop(0xfd, 0x74, function () { eay(this); writeByte(this, this.state.ea, this.state.h); });
+    opop(0xfd, 0x75, function () { eay(this); writeByte(this, this.state.ea, this.state.l); });
+    opop(0xfd, 0x77, function () { eay(this); writeByte(this, this.state.ea, this.state.a); });
+    opop(0xfd, 0xcb, function () { var arg = readArg8(this); var op = readArg8(this); iyBitInstr(this, op, arg); } );
 
     opop(0xfdcb, 0, undefined);
 
@@ -569,6 +751,10 @@
         this.outHandler = function () { };
         this.memory = [];
         this.romRange = { low: 0, high: 0 };
+        this.tStates = 0;
+        this.instructions = 0;
+        this.trace = [];
+        this.nopSledLength = 0;
         this.state = {
             a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0,
             a2: 0, f2: 0, b2: 0, c2: 0, d2: 0, e2: 0, h2: 0, l2: 0,
@@ -586,11 +772,28 @@
     };
 
     processor.prototype.doOneInstruction = function () {
+        if (this.trace.length >= 256) {
+            this.trace.shift();
+        }
         var oldPc = this.state.pc;
-        this.currentInstrPc = (oldPc + 65536).toString(16).substr(1);
+        this.currentInstrPc = oldPc.toString(16).padStart(4, '0');
         var instr = readNextInstr(this);
         var impl = this.implSet[instr];
         this.currentInstr = this.currentImplSetOpcode + (instr + 256).toString(16).substr(1);
+        if (instr === 0) {
+            if (this.nopSledLength) {
+                ++this.nopSledLength;
+                var nopStarted = (oldPc - this.nopSledLength).toString(16).padStart(4, '0');
+                this.trace[this.trace.length - 1] = nopStarted + ": NOP SLED of " + this.nopSledLength;
+            }
+            else {
+                this.nopSledLength = 1;
+                this.trace.push(this.currentInstrPc + ' ' + this.currentInstr);
+            }
+        }
+        else {
+            this.trace.push(this.currentInstrPc + ' ' + this.currentInstr);
+        }
         if (impl) {
             return impl.apply(this);
         } else {
@@ -602,7 +805,10 @@
         cycleCount = cycleCount || (0x7fffffff);
         var totalCycles = 0;
         while (totalCycles < cycleCount) {
-            totalCycles += this.doOneInstruction();
+            var cycles = this.doOneInstruction();
+            totalCycles += cycles;
+            this.tStates += cycles;
+            this.instructions++;
         }
     };
 

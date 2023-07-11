@@ -629,7 +629,9 @@
     var debugOutput = function (p) {
         console.log(
                 "Current instr: " + p.z80.currentInstr + " at " + p.z80.currentInstrPc + "\r\n" +
-                "P-RAMT: " + (256 * p.z80.memory[0x5CB5] + p.z80.memory[0x5CB4]).toString(16));
+                "P-RAMT: " + (256 * p.z80.memory[0x5CB5] + p.z80.memory[0x5CB4]).toString(16) + "\r\n" +
+                "T-States: " + p.z80.tStates + "\r\n" +
+                "Instructions: " + p.z80.instructions);
         var regs = [];
         for (var key in p.z80.state) {
             if (key.length == 1 || key.substr(1, 1) == "2")
@@ -638,17 +640,35 @@
                 regs.push(key + ":$" + (p.z80.state[key] + 65536).toString(16).substr(1));
         }
         console.log(regs.join(", "));
+        console.log("Memory around PC");
+        for (var i = (p.z80.state.pc - 32) & 0xfff0; i <= p.z80.state.pc + 32; i += 16) {
+            var line = (i + 65536).toString(16).substr(1) + ": ";
+            for (var j = 0; j <= 15; ++j) {
+                line += (p.z80.memory[i + j] + 256).toString(16).substr(1) + " ";
+            }
+            console.log(line);
+        }
+        console.log("Latest instructions");
+        for (var traceline of p.z80.trace) {
+            console.log(traceline);
+        }
     };
 
     speccy.prototype.runZ80 = function () {
         var beginTime = (new Date().getTime());
         var err = false;
         try {
-            this.z80.run(200000); // 200 000 cpu cycles per 1/50 second
+            this.z80.run(70000); // 70 000 cpu cycles per 1/50 second = 3,5 MHz
         }
         catch (error) {
             err = true;
-            console.log("ERROR: " + error);
+            if (error.message) {
+                console.log("ERROR: " + error.message);
+                console.log("Stack trace:\r\n" + error.stack);
+            }
+            else {
+                console.log("ERROR: " + error);
+            }
             debugOutput(this);
         }
         var endTime = (new Date().getTime());
